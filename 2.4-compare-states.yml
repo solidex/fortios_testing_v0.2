@@ -1,0 +1,16 @@
+
+---
+- name: Compare states (via YAML files)
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
+
+  - name: Find diff
+    copy:
+      src: "{{ dir1 }}/one-line/{{ item.split('/')[-1] }}"
+      dest: "{{ dir2 }}/one-line/{{ item.split('/')[-1] }}"
+    check_mode: yes
+    diff: yes
+    with_items: "{{ lookup('fileglob', '{{ dir1 }}/one-line/*').split(',') }}"

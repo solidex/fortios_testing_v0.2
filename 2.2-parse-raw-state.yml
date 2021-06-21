@@ -1,0 +1,85 @@
+
+---
+- name: Parse raw info into YAML files
+  hosts: "{{ hosts }}"
+  gather_facts: no
+  connection: local
+
+  vars:
+    diag_info_raw: {}
+    parsed: {}
+    input_dir: 'default'
+    rev: 0
+    dev_os: "fortios"
+
+    vdoms: []
+    state_keys: []
+
+  tasks:
+
+  - set_fact:
+      diag_info_raw: "{{ diag_info_raw | combine( { item: lookup('file', './raw_data/' + input_dir + '/' + item + '_' + inventory_hostname + '.state') } ) }}"
+    with_items:
+      - "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+
+  # vdom level templates
+  - set_fact:
+      parsed:  "{{ parsed | combine( { item.0: { item.1.split('/')[-1]: diag_info_raw[item.0] | parse_cli_textfsm(item.1) }}, recursive=True ) }}"
+      vdoms: "{{ vdoms + [ item.0 ] }}"
+      state_keys: "{{ state_keys + [ item.1.split('/')[-1] ] }}"
+    with_nested:
+      - "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+      - "{{ lookup('fileglob', 'templates/{{ dev_os }}/vdom/*').split(',') }}"
+    when: "vdom_mode | default(false)"
+  #
+  # - debug:
+  #     msg: "{{ parsed[item.0] }}"
+  #   loop: "{{ (vdoms | unique)|zip(state_keys | unique)|list }}"
+
+  # enriching state data
+
+  - set_fact:
+      qry: "routing_table[?NEXTHOP_IP!=''].NEXTHOP_IP"
+
+  - set_fact:
+      parsed:  "{{ parsed | combine( { item: { 'nexthops': (parsed[item] | json_query(qry) | unique) }}, recursive=True ) }}"
+    with_items: "{{ parsed }}"
+    when: "vdom_mode | default(false)"
+
+  - set_fact:
+      output_dir: "./out/run/{{ input_dir }}/{{ rev }}"
+    when: "rev is defined"
+
+  - set_fact:
+      output_dir: "./out/run/{{ input_dir }}"
+    when: "rev is not defined"
+
+  - name: Create a directory if it does not exist
+    file:
+      path: "{{ output_dir }}"
+      state: directory
+    run_once: True
+
+  - name: Create a YAML directory if it does not exist
+    file:
+      path: "{{ output_dir }}/yaml"
+      state: directory
+    run_once: True
+
+  - name: Create a one-line-struct directory if it does not exist
+    file:
+      path: "{{ output_dir }}/one-line"
+      state: directory
+    run_once: True
+
+  - name: Dump YAML
+    copy:
+      content: "{{ parsed[item] | to_nice_yaml }}"
+      dest: "{{ output_dir }}/yaml/{{ inventory_hostname }}_{{ item }}.state"
+    with_items: "{{ parsed }}"
+
+  - name: Dump one-line
+    template:
+      src: print_state.j2
+      dest: "{{ output_dir }}/one-line/{{ inventory_hostname }}_{{ item.0 }}_{{ item.1 }}.state"
+    loop: "{{ (vdoms | unique)|product(state_keys | unique)|list }}"

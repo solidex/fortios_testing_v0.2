@@ -1,0 +1,42 @@
+---
+- hosts: all
+  gather_facts: no
+
+  collections:
+   - fortinet.fortios
+  connection: httpapi
+
+  vars:
+    ansible_httpapi_port: 443
+    ansible_httpapi_use_ssl: yes
+    ansible_httpapi_validate_certs: no
+
+  tasks:
+  
+  - name: "Configure <system console> settings..."
+    fortiosconfig:
+     action: "ssh"
+     host:  "{{ ansible_host }}"
+     username: "{{ ansible_user }}"
+     password: "{{ ansible_password }}"
+     commands: |
+              config global
+              config system console
+              set output standard
+              end
+              config system global
+              set hostname {{ inventory_hostname }}
+              end
+              end
+
+  # - name: "Configure <system console> settings..."
+  #   fortios_system_console:
+  #     system_console:
+  #       output: "standard"
+  # - name: "Configure <system global> settings..."
+  #   fortios_system_global:
+  #     system_global:
+  #       hostname: "{{ inventory_hostname }}"
+
+  - debug:
+      msg: "It's all OK!"

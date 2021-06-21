@@ -1,0 +1,10 @@
+vars/
+inventory/
+work/
+raw_data/
+out/
+*.conf
+*.log
+__pycache__
+*.pyc
+*.test.yml

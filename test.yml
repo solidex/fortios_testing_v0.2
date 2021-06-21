@@ -1,0 +1,27 @@
+- hosts: localhost
+  
+  vars: 
+    vdom: test
+
+  tasks:
+
+
+  - name: Get raw info
+    delegate_to: localhost
+    fortiosconfig:
+     action: "ssh"
+     host:  "172.17.17.208"
+     username: "netauto"
+     password: "JuKrat%62"
+     commands: |
+               show
+    register: raw_state_info
+
+
+  - debug: 
+      msg: "{{ raw_state_info }}"
+
+  - delegate_to: localhost
+    copy:
+      content: "{{ (raw_state_info['meta']['out'].replace('\\r\\n', '\n')|string).replace('\\n', '\n')  }}"
+      dest: "test.state"

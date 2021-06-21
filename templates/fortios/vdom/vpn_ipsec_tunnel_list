@@ -1,0 +1,11 @@
+Value Required VPN_NAME (\S+)
+Value Required VPN_PROXY_ID (\S+)
+Value NPU_IP_RGWY (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})
+Value NPU_IP_LGWY (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})
+Value NPU_FLAG (\d\d)
+
+Start
+  ^.*list\s+all\s+ipsec\s+tunnel\s+in\s+vd
+  ^name=${VPN_NAME}\s+
+  ^proxyid=${VPN_PROXY_ID}\s+
+  ^\s+npu_flag=${NPU_FLAG}\s+npu_rgwy=${NPU_IP_RGWY}\s+npu_lgwy=${NPU_IP_LGWY} -> Record

@@ -1,0 +1,14 @@
+Value Required OSPF_NEIGH (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})
+# Value Filldown PROCESS (\d+)
+Value ADJ_STATE ([\w]+)
+Value DR_STATE ([\w-]+)
+Value NEIGH_IP (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})
+# Value UP_DOWN (\S+)
+Value INTF ([\d\w\-\.:/]+)
+
+Start
+  # ^OSPF\s+process\s+${PROCESS}:\s*$$
+  ^Neighbor\s+ID\s+Pri\s+State\s+Dead\s+Time\s+Address\s+Interface\s*$$ -> OSPF
+
+OSPF
+  ^${OSPF_NEIGH}\s+\d+\s+${ADJ_STATE}/\s*${DR_STATE}\s+\S+\s+${NEIGH_IP}\s+${INTF}\s*$$ -> Record

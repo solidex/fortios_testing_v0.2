@@ -1,0 +1,43 @@
+- hosts: all
+
+  vars:
+    output_path: "raw_data"
+    output_dir: "default"
+
+  gather_facts: no
+  tasks:
+
+  - name: Get raw info
+    delegate_to: localhost
+    fortiosconfig:
+     action: "ssh"
+     host:  "{{ host }}"
+     username: "{{ username }}"
+     password: "{{ password }}"
+     commands: |
+               config vdom
+               edit {{ item }}
+               get router info routing-table all
+               get router info bgp summary
+               get vpn ipsec tunnel summary
+               diag vpn tunnel list
+    register: raw_state_info
+    with_items: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    when: "vdom_mode | default(false)"
+  #
+  # - debug:
+  #     msg: "{{ item['item'] }}"
+  #   with_items: "{{ raw_state_info['results'] }}"
+
+  - name: Create a directory if it does not exist
+    delegate_to: localhost
+    file:
+      path: "{{ output_path }}/{{ output_dir }}"
+      state: directory
+    run_once: True
+
+  - delegate_to: localhost
+    copy:
+      content: "{{ (item['meta']['out'].replace('\\r\\n', '\n')|string).replace('\\n', '\n') }}"
+      dest: "{{ output_path }}/{{ output_dir }}/{{ item['item'] }}_{{ inventory_hostname }}.state"
+    with_items: "{{ raw_state_info['results'] }}"
