@@ -4,7 +4,7 @@
 
   tasks:
 
-  - name: "Configure <system console> settings"
+  - name: "Show full configuration"
     delegate_to: localhost
     fortiosconfig:
      action: "ssh"
@@ -12,14 +12,7 @@
      username: "{{ ansible_user }}"
      password: "{{ ansible_password }}"
      commands: |
-              config global
-                config system console
-                  set output standard
-                end
-                config system global
-                  set hostname {{ inventory_hostname }}
-                end
-              end
+              show full
     register: output
 
   - fail:
@@ -27,4 +20,4 @@
     when: output.meta.err == true
 
   - debug:
-      msg: "It's all OK!"
+      msg: "{{ output }}"

@@ -2,10 +2,6 @@
 - hosts: all
   gather_facts: no
 
-  collections:
-   - fortinet.fortios
-  connection: httpapi
-
   vars:
 
   tasks:
@@ -25,9 +21,9 @@
         mode: normal
         include-default-servers: enable
         server-list:
-          - addr-type: ipv4
-            server-address: "{{ fortimanager_ip }}"
-            server-type: "update rating" 
+        - addr-type: ipv4
+          server-address: "{{ fortimanager_ip }}"
+          server-type: "update rating" 
 
   - name: "Configure <log fortianalyzer> settings..."
     delegate_to: localhost

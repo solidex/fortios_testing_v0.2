@@ -1,0 +1,60 @@
+---
+- hosts: all
+  gather_facts: no
+
+  vars:
+    resources:
+    - bbc.com
+    - google.com
+    - facebook.com
+
+  tasks:
+
+
+
+  #
+  #
+  # IPv4 tests 
+
+  - name: "Make IPv4 requests"
+    delegate_to: localhost
+    shell: "ping4 -c 5 -q {{ item }}"
+    with_items:
+    - "{{ resources }}"
+    failed_when: no
+    register: ipv4_output
+
+  - fail:
+      msg: "IPv4 connectivity has some problems!"
+    when: item.stdout.find(' 0% packet loss') == -1
+    with_items:
+    - "{{ ipv4_output.results }}"
+
+  - debug:
+      msg: "IPv4 ok!"
+
+  - meta: end_play
+    when: ipv6 == false
+
+
+
+  #
+  #
+  # IPv6 tests
+
+  - name: "Make IPv6 requests"
+    delegate_to: localhost
+    shell: "ping6 -c 5 -q {{ item }}"
+    with_items:
+    - "{{ resources }}"
+    failed_when: no
+    register: ipv6_output
+
+  - fail:
+      msg: "IPv6 connectivity has some problems!"
+    when: item.stdout.find(' 0% packet loss') == -1
+    with_items:
+    - "{{ ipv6_output.results }}"
+
+  - debug:
+      msg: "IPv6 ok!"

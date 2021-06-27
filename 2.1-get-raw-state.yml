@@ -17,8 +17,12 @@
      commands: |
                config vdom
                edit {{ item }}
-               get router info routing-table all
+               
+               get router info routing-table database
+               get router info6 routing-table database
+               
                get router info bgp summary
+               
                get vpn ipsec tunnel summary
                diag vpn tunnel list
     register: raw_state_info
