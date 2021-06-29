@@ -1,0 +1,51 @@
+
+- hosts: all
+
+  gather_facts: no
+  vars:
+    ntp_inconsistency: []
+  tasks:
+
+  - name: "Get timezone"
+    delegate_to: localhost
+    fortiosconfig:
+     action: "get"
+     host:  "{{ ansible_host }}"
+     username: "{{ ansible_user }}"
+     password: "{{ ansible_password }}"
+     ssl_verify: False
+     config: "system global"
+    register: tz_info
+
+  - name: "Check timezone"
+    set_fact:
+      ntp_inconsistency: "{{ ntp_inconsistency + [ inventory_hostname + ': TZ is not configured properly' ]}}"
+    when: 'tz_info.meta.results.timezone | int != 84'
+
+  - name: "Check NTP status"
+    delegate_to: localhost
+    fortiosconfig:
+     action: "ssh"
+     host:  "{{ ansible_host }}"
+     username: "{{ ansible_user }}"
+     password: "{{ ansible_password }}"
+     https: True
+     commands: |
+              config global
+              diag sys ntp status
+
+    register: ntp_status
+
+  - name: "Check if ntp sync is enabled"
+    set_fact:
+      ntp_inconsistency: "{{ ntp_inconsistency + [ inventory_hostname + ': ntp sync not enabled' ]}}"
+    when: '"ntpsync: enabled" not in ntp_status.meta.out'
+
+  - name: "Check if ntp is syncronized"
+    set_fact:
+      ntp_inconsistency: "{{ ntp_inconsistency + [ inventory_hostname + ': ntp not syncronized' ]}}"
+    when: '"synchronized: yes" not in ntp_status.meta.out'
+
+  - name: Analyze and print result
+    debug:
+       msg: "{{ 'NTP ok' if (ntp_inconsistency | length) == 0 else ntp_inconsistency }}"

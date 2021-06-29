@@ -1,0 +1,36 @@
+- hosts: all
+
+  gather_facts: no
+  vars:
+    dns_inconsistency: []
+  tasks:
+
+  - name: "Clear DNS cache and ping FQDN"
+    delegate_to: localhost
+    fortiosconfig:
+      action: "ssh"
+      host:  "{{ ansible_host }}"
+      username: "{{  ansible_user }}"
+      password: "{{ ansible_password }}"
+      commands: |
+            config global
+              diag test application dnsproxy 14
+            end
+            config vdom
+              edit root
+                exec ping update.fortiguard.net
+              next
+            end
+    register: ping_result
+
+  # - debug:
+  #     msg: "{{ ping_result }}"
+
+  - name: "Check if pings where ok"
+    fail:
+      msg: "DNS or ICMP is not ok:\n {{ ping_result.meta.out }}"
+    when: '" 0% packet loss" not in ping_result.meta.out'
+
+  - name: Analyze and print result
+    debug:
+       msg: "{{ 'DNS ok' if (dns_inconsistency | length) == 0 else dns_inconsistency }}"

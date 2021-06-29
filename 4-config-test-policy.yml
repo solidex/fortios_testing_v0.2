@@ -6,7 +6,7 @@
     ipv4_dict: []
     ipv6_dict: []
     policyid: 25032021
-    policy_type: 
+    policy_type: allow_all
 
   tasks:
 
@@ -42,6 +42,25 @@
     with_items: 
     - "{{ ansible_all_ipv4_addresses }}"
 
+  - set_fact:
+      common:
+        name: "test___ipv4___{{ inventory_hostname }}"
+        policyid: "{{ policyid }}"
+        comments: "Policy for test clients. Created by Solidex organization."
+        srcintf: "{{ inside }}"
+        dstintf: "{{ outside }}"
+        srcaddr: "{{ ipv4_dict }}"
+        dstaddr:
+        - name: "all"
+        service:
+        - name: "ALL"
+        nat: "enable"
+        action: "accept"
+        status: "enable"
+        logtraffic: "all"
+        schedule: "always"
+      security: "{{ hostvars[inventory_hostname][policy_type] }}"
+
   - name: "Configure <firewall policy> settings"
     delegate_to: localhost
     fortiosconfig:
@@ -52,25 +71,15 @@
       password: "{{ ansible_password }}"
       vdom: "{{ data_vdom }}"
       config: "firewall policy"
-      config_parameters:
-        policyid: "{{ policyid }}"
-        name: "test___{{ inventory_hostname }}"
-        comments: "Policy for test clients. Created by Solidex organization."
-        srcintf: "{{ inside }}"
-        dstintf: "{{ outside }}"
-        srcaddr: "{{ ipv4_dict }}"
-        dstaddr:
-        - name: "all"
-        service:
-        - name: "ALL"
-        action: "accept"
-        status: "enable"
-        logtraffic: "all"
-        schedule: "always"
-        nat: "enable"
+      config_parameters: "{{ common | combine(security) }}"
 
   - debug:
       msg: "IPv4 configuration is completed!"
+
+
+
+
+
 
   - meta: end_play
     when: ipv6 == false
@@ -103,6 +112,25 @@
     with_items: 
     - "{{ ansible_all_ipv6_addresses }}"
 
+  - set_fact:
+      common:
+        name: "test___ipv6___{{ inventory_hostname }}"
+        policyid: "{{ policyid }}"
+        comments: "Policy for test clients. Created by Solidex organization."
+        srcintf: "{{ inside }}"
+        dstintf: "{{ outside }}"
+        srcaddr: "{{ ipv6_dict }}"
+        dstaddr:
+        - name: "all"
+        service:
+        - name: "ALL"
+        nat: "enable"
+        action: "accept"
+        status: "enable"
+        logtraffic: "all"
+        schedule: "always"
+      security: "{{ hostvars[inventory_hostname][policy_type] }}"
+
   - name: "Configure <firewall policy6> settings"
     delegate_to: localhost
     fortiosconfig:
@@ -113,22 +141,7 @@
       password: "{{ ansible_password }}"
       vdom: "{{ data_vdom }}"
       config: "firewall policy6"
-      config_parameters:
-        policyid: "{{ policyid }}"
-        name: "test6___{{ inventory_hostname }}"
-        comments: "Policy for test clients. Created by Solidex organization."
-        srcintf: "{{ inside }}"
-        dstintf: "{{ outside }}"
-        srcaddr: "{{ ipv6_dict }}"
-        dstaddr:
-        - name: "all"
-        service:
-        - name: "ALL"
-        action: "accept"
-        status: "enable"
-        logtraffic: "all"
-        schedule: "always"
-        nat: "enable"
+      config_parameters: "{{ common | combine(security) }}"
 
   - debug:
       msg: "IPv6 configuration is completed!"
