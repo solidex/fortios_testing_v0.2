@@ -1,77 +1,86 @@
-
 ---
 - name: Parse raw info into YAML files
-  hosts: "{{ hosts }}"
+  hosts: fortigates
   gather_facts: no
   connection: local
 
   vars:
-    diag_info_raw: {}
-    parsed: {}
-    input_dir: 'default'
-    rev: 0
+    input_dir: "default/0"
     dev_os: "fortios"
 
-    vdoms: []
+    diag_info_raw: {}
+    parsed: {}
+
     state_keys: []
+    vdoms: ['global']
 
   tasks:
 
+  # Prepare workflow
+  - set_fact: 
+      templates: "{{ lookup('fileglob', 'templates/{{ dev_os }}/vdom/*').split(',') + lookup('fileglob', 'templates/{{ dev_os }}/global/*').split(',') }}"
   - set_fact:
-      diag_info_raw: "{{ diag_info_raw | combine( { item: lookup('file', './raw_data/' + input_dir + '/' + item + '_' + inventory_hostname + '.state') } ) }}"
+      vdoms: "{{ vdoms + [ item ] }}"
     with_items:
-      - "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    - "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
 
-  # vdom level templates
   - set_fact:
+      diag_info_raw: "{{ diag_info_raw | combine( { item: lookup('file', 'out/raw_data/' + input_dir + '/' + item + '_' + inventory_hostname + '.state') } ) }}"
+    with_items:
+    - "{{ vdoms }}"
+
+
+  # vdom/global level templates
+  - name: "Parsing the output for VDOMs"
+    set_fact:
       parsed:  "{{ parsed | combine( { item.0: { item.1.split('/')[-1]: diag_info_raw[item.0] | parse_cli_textfsm(item.1) }}, recursive=True ) }}"
-      vdoms: "{{ vdoms + [ item.0 ] }}"
       state_keys: "{{ state_keys + [ item.1.split('/')[-1] ] }}"
     with_nested:
-      - "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
-      - "{{ lookup('fileglob', 'templates/{{ dev_os }}/vdom/*').split(',') }}"
+    - "{{ vdoms }}"
+    - "{{ templates }}"
     when: "vdom_mode | default(false)"
-  #
-  # - debug:
-  #     msg: "{{ parsed[item.0] }}"
-  #   loop: "{{ (vdoms | unique)|zip(state_keys | unique)|list }}"
+
 
   # enriching state data
-
   - set_fact:
-      qry: "routing_table[?NEXTHOP_IP!=''].NEXTHOP_IP"
+      qry_ipv4: "routing_table_ipv4[?NEXTHOP_IP!=''].NEXTHOP_IP"
+      qry_ipv6: "routing_table_ipv6[?NEXTHOP_IP!=''].NEXTHOP_IP"
 
-  - set_fact:
-      parsed:  "{{ parsed | combine( { item: { 'nexthops': (parsed[item] | json_query(qry) | unique) }}, recursive=True ) }}"
+
+  # IPv4 and IPv6 nexthops
+  - name: "Add IPv4 and IPv6 nexthops in state structure"
+    set_fact:
+      parsed:  "{{ parsed | combine( { item: { 'nexthops': { 'ipv4': (parsed[item] | json_query(qry_ipv4) | unique) , 'ipv6': (parsed[item] | json_query(qry_ipv6) | unique) } }}, recursive=True ) }}"
     with_items: "{{ parsed }}"
     when: "vdom_mode | default(false)"
+  
 
+
+  # Format VRF list
+  - name: "Format VRF list in Global"
+    set_fact:
+      parsed:  "{{ parsed | combine({'global': {'all_vrf': parsed.global.all_vrf[0]['VRF'] | unique | sort | list }}, recursive=True) }}"
+    when: "vdom_mode | default(false)"
+
+
+  # Set up path to output directory
   - set_fact:
-      output_dir: "./out/run/{{ input_dir }}/{{ rev }}"
-    when: "rev is defined"
+      output_dir: "./out/parsed_data/{{ input_dir }}"
 
-  - set_fact:
-      output_dir: "./out/run/{{ input_dir }}"
-    when: "rev is not defined"
-
-  - name: Create a directory if it does not exist
+  - name: Create output directories if it does not exist
     file:
-      path: "{{ output_dir }}"
+      path: "{{ output_dir }}/{{ item }}"
       state: directory
+      recurse: yes
+    with_items:
+    - ['yaml', 'one-line']
     run_once: True
 
-  - name: Create a YAML directory if it does not exist
-    file:
-      path: "{{ output_dir }}/yaml"
-      state: directory
-    run_once: True
 
-  - name: Create a one-line-struct directory if it does not exist
-    file:
-      path: "{{ output_dir }}/one-line"
-      state: directory
-    run_once: True
+  - debug:
+      msg: "{{ parsed }}"
 
+  # Generate output 
   - name: Dump YAML
     copy:
       content: "{{ parsed[item] | to_nice_yaml }}"
@@ -80,6 +89,6 @@
 
   - name: Dump one-line
     template:
-      src: print_state.j2
+      src: "print_state.j2"
       dest: "{{ output_dir }}/one-line/{{ inventory_hostname }}_{{ item.0 }}_{{ item.1 }}.state"
-    loop: "{{ (vdoms | unique)|product(state_keys | unique)|list }}"
+    loop: "{{ (vdoms | unique) | product(state_keys | unique) | list }}"

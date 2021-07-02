@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: fortigates
   gather_facts: no
 
   vars:

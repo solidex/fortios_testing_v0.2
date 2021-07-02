@@ -1,3 +1,4 @@
+---
 - hosts: customer
   gather_facts: no
 

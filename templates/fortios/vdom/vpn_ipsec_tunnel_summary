@@ -1,5 +1,5 @@
 Value Required VPN_NAME (\S+)
-Value Required IP_NEIGH (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})
+Value Required IP_NEIGH ([:\.\da-f]+)
 Value Required TUNNEL_TOTAL (\d+)
 Value Required TUNNEL_UP (\d+)
 

@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: fortigates
   gather_facts: no
 
   tasks:
@@ -16,8 +16,12 @@
     register: output
 
   - fail:
-      msg: "There was an error during execution..."
+      msg: "There was an error during execution:\n{{ output.meta.out[-500:].split('\n')[1:] | join('\n') }}"
     when: output.meta.err == true
 
+  - fail:
+      msg: "Seems like output is not full:\n...\n{{ output.meta.out[-500:].split('\n')[1:] | join('\n') }}"
+    when: (output.meta.out | trim)[-1] != "#"
+
   - debug:
-      msg: "{{ output }}"
+      msg: "It's all OK!"

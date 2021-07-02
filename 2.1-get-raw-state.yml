@@ -1,47 +1,74 @@
-- hosts: all
+---
+- hosts: fortigates
+  gather_facts: no
 
   vars:
-    output_path: "raw_data"
-    output_dir: "default"
+    output_path: "out/raw_data"
+    output_dir: "default/0"
 
-  gather_facts: no
   tasks:
 
-  - name: Get raw info
+  # Execute CLI commands for Global and VDOMs 
+  - name: "Get raw info for Global"
     delegate_to: localhost
     fortiosconfig:
      action: "ssh"
-     host:  "{{ host }}"
-     username: "{{ username }}"
-     password: "{{ password }}"
+     host:  "{{ ansible_host }}"
+     username: "{{ ansible_user }}"
+     password: "{{ ansible_password }}"
      commands: |
-               config vdom
-               edit {{ item }}
-               
-               get router info routing-table database
-               get router info6 routing-table database
-               
-               get router info bgp summary
-               
-               get vpn ipsec tunnel summary
-               diag vpn tunnel list
-    register: raw_state_info
-    with_items: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+            config global
+            show full | grep vrf  
     when: "vdom_mode | default(false)"
-  #
-  # - debug:
-  #     msg: "{{ item['item'] }}"
-  #   with_items: "{{ raw_state_info['results'] }}"
+    with_items: "global"
+    register: raw_global
 
+  - name: "Get raw info for VDOMs: {{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    delegate_to: localhost
+    fortiosconfig:
+     action: "ssh"
+     host:  "{{ ansible_host }}"
+     username: "{{ ansible_user }}"
+     password: "{{ ansible_password }}"
+     commands: |
+            config vdom
+            edit {{ item }}
+
+            get router info routing-table database
+            get router info6 routing-table database
+
+            get router info bgp summary
+
+            get vpn ipsec tunnel summary
+            diag vpn tunnel list
+    when: "vdom_mode | default(false)"
+    with_items: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    register: raw_vdom
+  
+
+  # Look for errors
+  - fail:
+      msg: "During execution there are some errors:\n{{ item.meta.out }}"
+    when: item.meta.err == true
+    with_items: 
+    - "{{ raw_vdom.results }}"
+    - "{{ raw_global.results }}"
+
+
+  # Output workflow
   - name: Create a directory if it does not exist
     delegate_to: localhost
     file:
       path: "{{ output_path }}/{{ output_dir }}"
       state: directory
+      recurse: yes
     run_once: True
 
-  - delegate_to: localhost
+  - name: "Dump CLI output"
+    delegate_to: localhost
     copy:
       content: "{{ (item['meta']['out'].replace('\\r\\n', '\n')|string).replace('\\n', '\n') }}"
       dest: "{{ output_path }}/{{ output_dir }}/{{ item['item'] }}_{{ inventory_hostname }}.state"
-    with_items: "{{ raw_state_info['results'] }}"
+    with_items: 
+    - "{{ raw_vdom.results }}"
+    - "{{ raw_global.results }}"

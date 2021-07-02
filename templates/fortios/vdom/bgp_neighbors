@@ -1,4 +1,4 @@
-Value BGP_NEIGH (\d+?\.\d+?\.\d+?\.\d+?)
+Value BGP_NEIGH ([:\.\da-f]+)
 Value NEIGH_AS (\d+)
 # Value UP_DOWN (\S+)
 Value STATE_PFXRCD (\w+)

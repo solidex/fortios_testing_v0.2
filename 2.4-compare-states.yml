@@ -1,4 +1,3 @@
-
 ---
 - name: Compare states (via YAML files)
   hosts: localhost
@@ -7,10 +6,16 @@
 
   tasks:
 
+  - fail:
+      msg: |
+        It's deprecated directory input format.
+        Use -e 'dir1=<directory>/<revision> dir2=<directory>/<revision>'"
+    when: dir1.startswith("out/run") or dir2.startswith("out/run")
+        
   - name: Find diff
     copy:
-      src: "{{ dir1 }}/one-line/{{ item.split('/')[-1] }}"
-      dest: "{{ dir2 }}/one-line/{{ item.split('/')[-1] }}"
-    check_mode: yes
+      dest: "out/parsed_data/{{ dir1 }}/one-line/{{ item.split('/')[-1] }}"
+      src: "out/parsed_data/{{ dir2 }}/one-line/{{ item.split('/')[-1] }}"
     diff: yes
-    with_items: "{{ lookup('fileglob', '{{ dir1 }}/one-line/*').split(',') }}"
+    check_mode: yes
+    with_items: "{{ lookup('fileglob', 'out/parsed_data/{{ dir1 }}/one-line/*').split(',') }}"

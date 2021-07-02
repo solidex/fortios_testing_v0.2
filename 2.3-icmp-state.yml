@@ -1,0 +1,74 @@
+- hosts: fortigates
+
+  gather_facts: no
+  vars:
+    ping_inconsistency: []
+    input_dir: "default/0"
+    icmp_report: []
+    index: []
+  tasks:
+
+  - name: Include vars
+    include_vars:
+      file: "out/parsed_data/{{ input_dir }}/yaml/{{ inventory_hostname }}_{{ item }}.state"
+      name: "{{ item }}"
+    loop: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+
+  - name: Build index
+    set_fact:
+      index: "{{ index + [{ 'vdom': item } | combine(hostvars[inventory_hostname][item]['nexthops']) ] }}"
+    loop: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+
+  # Do ICMP ping to all nexthops
+  - name: "Ping IPv4 nexthops"
+    delegate_to: localhost
+    fortiosconfig:
+      action: "ssh"
+      host:  "{{ ansible_host }}"
+      username: "{{ ansible_user }}"
+      password: "{{ ansible_password }}"
+      commands: |
+               config vdom
+               edit {{ item.0.vdom }}
+               execute ping {{ item.1 }}
+    register: icmp_ipv4
+    with_subelements: 
+    - "{{ index }}"
+    - ipv4
+
+  - name: "Ping IPv6 nexthops"
+    delegate_to: localhost
+    fortiosconfig:
+      action: "ssh"
+      host:  "{{ ansible_host }}"
+      username: "{{ ansible_user }}"
+      password: "{{ ansible_password }}"
+      commands: |
+               config vdom
+               edit {{ item.0.vdom }}
+               execute ping6 {{ item.1 }}
+    register: icmp_ipv6
+    with_subelements: 
+    - "{{ index }}"
+    - ipv6
+
+
+  - name: "Create report about IPv4 and IPv6 ICMP"
+    set_fact: 
+      icmp_report: "{{ icmp_report + [{ 'from': item.item.0.vdom, 'to': item.item.1, 'icmp_reachable': item.meta.out.find(' 0% packet loss') > 0 }] }}"
+    with_items:
+    - "{{ icmp_ipv4.results }}"
+    - "{{ icmp_ipv6.results }}"
+
+  # Print to YAML and one-line file
+  - name: Dump YAML
+    delegate_to: localhost
+    copy:
+      content: "{{ icmp_report | to_nice_yaml }}"
+      dest: "out/parsed_data/{{ input_dir }}/yaml/{{ inventory_hostname }}_icmp.state"
+
+  - name: Dump one-line
+    delegate_to: localhost
+    copy:
+      content: "{{ icmp_report | to_nice_yaml }}"
+      dest: "out/parsed_data/{{ input_dir }}/one-line/{{ inventory_hostname }}_icmp.state"
