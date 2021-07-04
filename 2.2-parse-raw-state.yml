@@ -55,11 +55,10 @@
     when: "vdom_mode | default(false)"
   
 
-
   # Format VRF list
   - name: "Format VRF list in Global"
     set_fact:
-      parsed:  "{{ parsed | combine({'global': {'all_vrf': parsed.global.all_vrf[0]['VRF'] | unique | sort | list }}, recursive=True) }}"
+      parsed:  "{{ parsed | combine({'global': {'vrf_mode': (parsed.global.vrf_mode[0]['VRF'] | unique | sort) }}, recursive=True) }}"
     when: "vdom_mode | default(false)"
 
 
@@ -76,9 +75,6 @@
     - ['yaml', 'one-line']
     run_once: True
 
-
-  - debug:
-      msg: "{{ parsed }}"
 
   # Generate output 
   - name: Dump YAML

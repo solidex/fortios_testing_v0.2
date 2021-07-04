@@ -1,5 +1,0 @@
-Value Required,List VRF (\S+)
-
-
-Start
-  ^\s*set\svrf\s${VRF}\s*$$ -> Continue

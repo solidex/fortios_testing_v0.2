@@ -12,10 +12,24 @@
         Use -e 'dir1=<directory>/<revision> dir2=<directory>/<revision>'"
     when: dir1.startswith("out/run") or dir2.startswith("out/run")
         
-  - name: Find diff
+  - name: "Find diff [ALL]"
     copy:
       dest: "out/parsed_data/{{ dir1 }}/one-line/{{ item.split('/')[-1] }}"
       src: "out/parsed_data/{{ dir2 }}/one-line/{{ item.split('/')[-1] }}"
     diff: yes
     check_mode: yes
-    with_items: "{{ lookup('fileglob', 'out/parsed_data/{{ dir1 }}/one-line/*').split(',') }}"
+    with_items: 
+    - "{{ lookup('fileglob', 'out/parsed_data/{{ dir1 }}/one-line/*').split(',') }}"
+
+  - name: "Information message: VRF"
+    debug:
+      msg: |
+        VRF='' means, that VRF feature is not presented in the current FortiOS, so there is no information about VRF to parse.
+        VRF='' should be equal to VRF='0' when upgrading FortiOS.
+
+  - name: "Information message: Inter-VDOM links"
+    debug:
+      msg: |
+        FortiOS <=5.4: inter-VDOM links have two directly connected routes in RIB: with the configured mask and with the mask of 32. 
+        FortiOS >=5.6: inter-VDOM links have only one directly connected route in RIB: with the configured mask.
+        The route with the mask of 32 should be disappeared when upgrading FortiOS.
