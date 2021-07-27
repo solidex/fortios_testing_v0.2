@@ -38,7 +38,7 @@
             get router info6 routing-table database
 
             get router info bgp summary
-
+            
             get vpn ipsec tunnel summary
     when: "vdom_mode | default(false)"
     with_items: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"

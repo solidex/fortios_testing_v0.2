@@ -6,7 +6,6 @@
 
   - name: "Install required software"
     apt:
-      name: "{{ item }}"
+      name: [ 'httping', 'hping3', 'nmap' ]
       state: present
     become: yes
-    with_items: [ 'httping', 'hping3', 'nmap' ]
