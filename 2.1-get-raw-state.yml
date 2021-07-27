@@ -26,11 +26,11 @@
   - name: "Get raw info for VDOMs: {{ hostvars[inventory_hostname].vdoms.split(',') }}"
     delegate_to: localhost
     fortiosconfig:
-     action: "ssh"
-     host:  "{{ ansible_host }}"
-     username: "{{ ansible_user }}"
-     password: "{{ ansible_password }}"
-     commands: |
+      action: "ssh"
+      host:  "{{ ansible_host }}"
+      username: "{{ ansible_user }}"
+      password: "{{ ansible_password }}"
+      commands: |
             config vdom
             edit {{ item }}
 
@@ -40,11 +40,19 @@
             get router info bgp summary
 
             get vpn ipsec tunnel summary
-            diag vpn tunnel list
     when: "vdom_mode | default(false)"
     with_items: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
     register: raw_vdom
   
+
+
+  - debug:
+      msg: "{{ item.meta.out }}"
+    with_items: 
+    - "{{ raw_vdom.results }}"
+    - "{{ raw_global.results }}"
+    loop_control:
+      label: "(o.0)"
 
   # Look for errors
   - fail:
@@ -52,7 +60,6 @@
     when: item.meta.err == true
     with_items: 
     - "{{ raw_vdom.results }}"
-    - "{{ raw_global.results }}"
 
 
   # Output workflow
@@ -72,3 +79,5 @@
     with_items: 
     - "{{ raw_vdom.results }}"
     - "{{ raw_global.results }}"
+    loop_control:
+      label: "(o.0)"
