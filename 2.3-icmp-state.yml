@@ -2,22 +2,45 @@
 
   gather_facts: no
   vars:
-    ping_inconsistency: []
+    path_to_parsed: "out/parsed_data"
+
     input_dir: "default/0"
+    
+    ping_inconsistency: []
     icmp_report: []
     index: []
   tasks:
 
+
+
+  # Read vdoms for device
+  - name: "Read vdoms from {{ path_to_parsed }}/{{ input_dir }}/{{ inventory_hostname }}.vdoms" 
+    include_vars:
+      file: "{{ path_to_parsed }}/{{ input_dir }}/{{ inventory_hostname }}.vdoms"
+      name: vdom_list
+
+  - debug:
+      msg: "{{ vdom_list }}"
+
+
+
+
+
+
+
+
+
+
   - name: Include vars
     include_vars:
-      file: "out/parsed_data/{{ input_dir }}/yaml/{{ inventory_hostname }}_{{ item }}.state"
+      file: "{{ path_to_parsed }}/{{ input_dir }}/yaml/{{ inventory_hostname }}_{{ item }}.state"
       name: "{{ item }}"
-    loop: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    loop: "{{ vdom_list.vdoms }}"
 
   - name: Build index
     set_fact:
       index: "{{ index + [{ 'vdom': item } | combine(hostvars[inventory_hostname][item]['nexthops']) ] }}"
-    loop: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    loop: "{{ vdom_list.vdoms }}"
 
   # Do ICMP ping to all nexthops
   - name: "Ping IPv4 nexthops"
@@ -65,10 +88,10 @@
     delegate_to: localhost
     copy:
       content: "{{ icmp_report | to_nice_yaml }}"
-      dest: "out/parsed_data/{{ input_dir }}/yaml/{{ inventory_hostname }}_icmp.state"
+      dest: "{{ path_to_parsed }}/{{ input_dir }}/yaml/{{ inventory_hostname }}_icmp.state"
 
   - name: Dump one-line
     delegate_to: localhost
     copy:
       content: "{{ icmp_report | to_nice_yaml }}"
-      dest: "out/parsed_data/{{ input_dir }}/one-line/{{ inventory_hostname }}_icmp.state"
+      dest: "{{ path_to_parsed }}/{{ input_dir }}/one-line/{{ inventory_hostname }}_icmp.state"

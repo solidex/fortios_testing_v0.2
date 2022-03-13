@@ -5,27 +5,48 @@
   connection: local
 
   vars:
+    path_to_raw: "out/raw_data"
+    path_to_parsed: "out/parsed_data"
+
     input_dir: "default/0"
     dev_os: "fortios"
 
     diag_info_raw: {}
     parsed: {}
-
+    
+    vdoms: []
     state_keys: []
-    vdoms: ['global']
 
   tasks:
 
+
+
+  # Read vdoms for device
+  - name: "Read vdoms from {{ path_to_raw }}/{{ input_dir }}/{{ inventory_hostname }}.vdoms" 
+    include_vars:
+      file: "{{ path_to_raw }}/{{ input_dir }}/{{ inventory_hostname }}.vdoms"
+      name: vdom_list
+
+  - debug:
+      msg: "{{ vdom_list }}"
+
+
+
+
+
+
+
   # Prepare workflow
   - set_fact: 
-      templates: "{{ lookup('fileglob', 'templates/{{ dev_os }}/vdom/*').split(',') + lookup('fileglob', 'templates/{{ dev_os }}/global/*').split(',') }}"
+      templates: "{{ lookup('fileglob', 'templates/{{ dev_os }}/vdom/*').split(',') }}"
+
   - set_fact:
       vdoms: "{{ vdoms + [ item ] }}"
     with_items:
-    - "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    - "{{ vdom_list.vdoms }}"
 
   - set_fact:
-      diag_info_raw: "{{ diag_info_raw | combine( { item: lookup('file', 'out/raw_data/' + input_dir + '/' + item + '_' + inventory_hostname + '.state') } ) }}"
+      diag_info_raw: "{{ diag_info_raw | combine( { item: lookup('file', path_to_raw + '/' + input_dir + '/' + item + '_' + inventory_hostname + '.state') } ) }}"
     with_items:
     - "{{ vdoms }}"
 
@@ -38,7 +59,6 @@
     with_nested:
     - "{{ vdoms }}"
     - "{{ templates }}"
-    when: "vdom_mode | default(false)"
 
 
   # enriching state data
@@ -52,19 +72,11 @@
     set_fact:
       parsed:  "{{ parsed | combine( { item: { 'nexthops': { 'ipv4': (parsed[item] | json_query(qry_ipv4) | unique) , 'ipv6': (parsed[item] | json_query(qry_ipv6) | unique) } }}, recursive=True ) }}"
     with_items: "{{ parsed }}"
-    when: "vdom_mode | default(false)"
   
-
-  # Format VRF list
-  - name: "Format VRF list in Global"
-    set_fact:
-      parsed:  "{{ parsed | combine({'global': {'vrf_mode': (parsed.global.vrf_mode[0]['VRF'] | unique | sort) }}, recursive=True) }}"
-    when: "vdom_mode | default(false)"
-
 
   # Set up path to output directory
   - set_fact:
-      output_dir: "./out/parsed_data/{{ input_dir }}"
+      output_dir: "{{ path_to_parsed }}/{{ input_dir }}"
 
   - name: Create output directories if it does not exist
     file:
@@ -88,3 +100,11 @@
       src: "print_state.j2"
       dest: "{{ output_dir }}/one-line/{{ inventory_hostname }}_{{ item.0 }}_{{ item.1 }}.state"
     loop: "{{ (vdoms | unique) | product(state_keys | unique) | list }}"
+
+  - name: "Dump vdoms list"
+    delegate_to: localhost
+    copy:
+      content: "vdoms:\n{{ vdoms | to_nice_yaml }}"
+      dest: "{{ output_dir }}/{{ inventory_hostname }}.vdoms"
+
+

@@ -25,7 +25,7 @@
     debug:
       msg: |
         VRF='' means, that VRF feature is not presented in the current FortiOS, so there is no information about VRF to parse.
-        VRF='' should be equal to VRF='0' when upgrading FortiOS.
+        VRF='' should be equal to VRF='0' after upgrading FortiOS.
 
   - name: "Information message: Inter-VDOM links"
     debug:

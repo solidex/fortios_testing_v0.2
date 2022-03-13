@@ -3,27 +3,33 @@
   gather_facts: no
 
   vars:
-    output_path: "out/raw_data"
+    path_to_data: "out/raw_data"
     output_dir: "default/0"
+    vdom_mode: True
+
+    vrf_jmespath_query: '*[0][0]."system interface"[0].*.{alias: alias, ip: ip, vdom: vdom, vrf: vrf}'
 
   tasks:
 
-  # Execute CLI commands for Global and VDOMs 
-  - name: "Get raw info for Global"
-    delegate_to: localhost
-    fortiosconfig:
-     action: "ssh"
-     host:  "{{ ansible_host }}"
-     username: "{{ ansible_user }}"
-     password: "{{ ansible_password }}"
-     commands: |
-            config global
-            show full | grep vrf  
-    when: "vdom_mode | default(false)"
-    with_items: "global"
-    register: raw_global
 
-  - name: "Get raw info for VDOMs: {{ hostvars[inventory_hostname].vdoms.split(',') }}"
+  # Create logs folders
+  - name: Create a directory if it does not exist
+    delegate_to: localhost
+    file:
+      path: "{{ path_to_data }}/{{ output_dir }}"
+      state: directory
+      recurse: yes
+    run_once: True
+
+
+
+
+
+
+
+
+  # Automatically determine if config has vdoms
+  - name: "Read configuration from device"
     delegate_to: localhost
     fortiosconfig:
       action: "ssh"
@@ -31,28 +37,83 @@
       username: "{{ ansible_user }}"
       password: "{{ ansible_password }}"
       commands: |
+                show
+    register: config_string
+
+  - name: "Save configuration from device"
+    delegate_to: localhost
+    copy: 
+      content: "{{ config_string.meta.out }}"
+      dest: "{{ path_to_data }}/{{ output_dir }}/{{ inventory_hostname }}.conf"
+
+  - name: "Convert configuration to object"
+    delegate_to: localhost
+    fortiosconfig_file:
+      source: "{{ path_to_data }}/{{ output_dir }}/{{ inventory_hostname }}.conf"
+      action: "get"
+    register: config_object
+
+  - name: "Determine if vdom mode is enabled or not"
+    set_fact:
+      vdom_mode: False
+    when: config_object.meta.keys() | list | length == 1
+
+  - debug:
+      msg: "vdom_mode: {{ vdom_mode }}"
+    when: vdom_mode == False
+  
+  - debug:
+      msg: "vdoms: {{ config_object.meta.keys() | list }}"
+    when: vdom_mode == True
+
+
+
+
+
+
+
+
+
+
+
+
+  # Collect network state
+  - name: "Get VRF list"
+    set_fact:
+      vrf_list: "{{ config_object.meta | json_query(vrf_jmespath_query) }}"
+
+  - name: "Collect IPv4/IPv6 information"
+    delegate_to: localhost
+    fortiosconfig:
+      action: "ssh"
+      host:  "{{ ansible_host }}"
+      username: "{{ ansible_user }}"
+      password: "{{ ansible_password }}"
+      commands: |
+            {% if vdom_mode == True %}
             config vdom
             edit {{ item }}
+            {% endif %}
+
 
             get router info routing-table database
             get router info6 routing-table database
-
+            
             get router info bgp summary
             
             get vpn ipsec tunnel summary
-    when: "vdom_mode | default(false)"
-    with_items: "{{ hostvars[inventory_hostname].vdoms.split(',') }}"
+    with_items: "{{ config_object.meta.keys() | list }}"
     register: raw_vdom
-  
-
 
   - debug:
-      msg: "{{ item.meta.out }}"
+      msg: "{{ item }}"
     with_items: 
     - "{{ raw_vdom.results }}"
-    - "{{ raw_global.results }}"
     loop_control:
       label: "(o.0)"
+
+
+
 
   # Look for errors
   - fail:
@@ -62,22 +123,22 @@
     - "{{ raw_vdom.results }}"
 
 
-  # Output workflow
-  - name: Create a directory if it does not exist
-    delegate_to: localhost
-    file:
-      path: "{{ output_path }}/{{ output_dir }}"
-      state: directory
-      recurse: yes
-    run_once: True
 
-  - name: "Dump CLI output"
+
+
+  # Dump CLI output
+  - name: "Dump network state"
     delegate_to: localhost
     copy:
-      content: "{{ (item['meta']['out'].replace('\\r\\n', '\n')|string).replace('\\n', '\n') }}"
-      dest: "{{ output_path }}/{{ output_dir }}/{{ item['item'] }}_{{ inventory_hostname }}.state"
+      content: "{{ (item.meta.out.replace('\\r\\n', '\n')|string).replace('\\n', '\n') }}"
+      dest: "{{ path_to_data }}/{{ output_dir }}/{{ item['item'] }}_{{ inventory_hostname }}.state"
     with_items: 
     - "{{ raw_vdom.results }}"
-    - "{{ raw_global.results }}"
     loop_control:
       label: "(o.0)"
+
+  - name: "Dump vdoms list"
+    delegate_to: localhost
+    copy:
+      content: "vdoms:\n{{ config_object.meta.keys() | list | to_nice_yaml }}"
+      dest: "{{ path_to_data }}/{{ output_dir }}/{{ inventory_hostname }}.vdoms"
