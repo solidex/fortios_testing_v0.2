@@ -19,7 +19,7 @@
     diff: yes
     check_mode: yes
     with_items: 
-    - "{{ lookup('fileglob', 'out/parsed_data/{{ dir1 }}/one-line/*').split(',') }}"
+    - "{{ lookup('fileglob', './out/parsed_data/{{ dir1 }}/one-line/*').split(',') }}"
 
   - name: "Information message: VRF"
     debug:

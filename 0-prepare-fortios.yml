@@ -12,14 +12,9 @@
      username: "{{ ansible_user }}"
      password: "{{ ansible_password }}"
      commands: |
-              config global
                 config system console
                   set output standard
                 end
-                config system global
-                  set hostname {{ inventory_hostname }}
-                end
-              end
     register: output
 
   - fail:

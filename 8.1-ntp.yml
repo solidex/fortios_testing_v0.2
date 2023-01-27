@@ -10,7 +10,7 @@
     delegate_to: localhost
     fortiosconfig:
      action: "get"
-     host:  "{{ ansible_host }}"
+     host:  "{{ ansible_host }}:4443"
      username: "{{ ansible_user }}"
      password: "{{ ansible_password }}"
      ssl_verify: False
@@ -31,7 +31,6 @@
      password: "{{ ansible_password }}"
      https: True
      commands: |
-              config global
               diag sys ntp status
 
     register: ntp_status
@@ -49,3 +48,9 @@
   - name: Analyze and print result
     debug:
        msg: "{{ 'NTP ok' if (ntp_inconsistency | length) == 0 else ntp_inconsistency }}"
+
+
+
+
+# faz
+# diagnose system ntp status
